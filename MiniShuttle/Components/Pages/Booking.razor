@@ -1,0 +1,346 @@
+﻿@page "/book-service"
+@using MiniShuttle.Models
+@using MiniShuttle.Service
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@inject BookingService BookingService
+@implements IAsyncDisposable
+
+<PageTitle>Mini Shuttle Booking Service</PageTitle>
+
+<div class="container-fluid py-4">
+<div class="row">
+        <!-- Booking Form -->
+        <div class="col">
+            <!-- Booking Confirmation -->
+            @if (isBookingSuccess)
+            {
+                <div class="card mt-3 border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Booking Confirmed!</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-success">
+                            <p>Booking ID: @booking.Id</p>
+                            <p>Service: @booking.ServiceType</p>
+                            <p>Date: @booking.BookingDateTime.ToString("dd, yyyy HH:mm")</p>
+                            <p>From: @booking.PickupAddress</p>
+                            <p>To: @booking.DestinationAddress</p>
+                            @if (booking.IsRoundTrip)
+                            {   
+                                <p>Return Date:  @booking.ReturnRoundDateTime.ToString("dd, yyyy HH:mm")</p>
+                            }
+                            <p>Total Cost: @booking.EstimatedCost.ToString("F2")</p>
+                        </div>
+                    </div>
+                </div>
+            }else{
+               
+                <div class="card shadow">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">Book Your Ride</h4>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="booking" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary/>
+                        <!-- Trip Details -->
+                        <h6 class="text-muted mb-3">Trip Details</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Service Type *</label>
+                                <InputSelect @bind-Value="booking.ServiceType" class="form-select"  @bind-Value:after=OnServiceTypeChanged>
+                                    <option value="">-- Select Service --</option>
+                                    <option value="@ServiceType.Standard">Standard</option>
+                                    <option value="@ServiceType.Premium">Premium</option>
+                                    <option value="@ServiceType.Luxury">Luxury</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => booking.ServiceType)" />
+                            </div>
+                        <div class="mb-3">
+                            <label class="form-label">Pickup Location *</label>
+                            <div class="input-group position-relative">
+                                <input type="text"
+                                       id="pickupSearchInput"
+                                       class="form-control"
+                                       placeholder="Search for pickup location..."
+                                       value="@booking.PickupAddress"
+                                       @oninput="OnPickupInputChanged" />
+                                <button type="button" class="btn btn-outline-primary" @onclick="GetCurrentLocation">
+                                    📍
+                                </button>
+                                <div id="pickupSuggestions" class="autocomplete-suggestions"></div>
+                            </div>
+                            <small class="text-muted">Type to search or click 📍 to use current location</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Destination *</label>
+                            <div class="position-relative">
+                                <input type="text"
+                                       id="destinationSearchInput"
+                                       class="form-control"
+                                       placeholder="Search for destination..."
+                                       value="@booking.DestinationAddress"
+                                       @oninput="OnDestinationInputChanged" />
+                                <div id="destinationSuggestions" class="autocomplete-suggestions"></div>
+                            </div>
+                            <small class="text-muted">Type to search or click on map to select destination</small>
+                        </div>
+                        <!-- Map -->
+                        <div class="col-lg-8">
+                            <div class="card shadow">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">📍 Select Your Locations</h5>
+                                    <small>Search for locations or click on the map</small>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div id="bookingMap" style="height: 600px; width: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                       
+
+                        <div class="mb-3">
+                            <label class="form-label">Pickup Date & Time *</label>
+                                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="booking.BookingDateTime" class="form-control" />
+                            <ValidationMessage For="@(() => booking.BookingDateTime)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-check-label">I want round trip</label>
+                            <InputCheckbox @bind-Value=booking.IsRoundTrip class="form-check-input" @bind-Value:after=CalculateRoute></InputCheckbox>
+                                <ValidationMessage For="@(() => booking.IsRoundTrip)" />
+
+                        </div>
+                            @if (booking.IsRoundTrip)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Return Date & Time *</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="booking.ReturnRoundDateTime" class="form-control" />
+                                    <ValidationMessage For="@(() => booking.ReturnRoundDateTime)" />
+                                </div>
+                            }
+                            @if (booking.EstimatedDistance > 0)
+                        {
+                            <div class="alert alert-info">
+                                <strong>Distance:</strong> @booking.EstimatedDistance.ToString("F2") km<br />
+                                <strong>Duration:</strong> ~@booking.EstimatedDuration min<br />
+                                <strong>Estimated Cost:</strong> $@booking.EstimatedCost.ToString("F2")
+                            </div>
+                        }
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Confirm Booking
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ClearForm">
+                              Clear
+                            </button>
+                        </div>
+
+                    </EditForm>
+                        @if (!string.IsNullOrEmpty(msg))
+                        {
+                        <p class="alert alert-info">@msg</p>
+                        }
+                </div>
+            </div>
+
+
+     }
+        </div>
+
+    </div>
+</div>
+
+<style>
+    .autocomplete-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .autocomplete-suggestion {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
+    }
+
+        .autocomplete-suggestion:hover {
+            background-color: #f8f9fa;
+        }
+
+        .autocomplete-suggestion.selected {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .autocomplete-suggestion:last-child {
+            border-bottom: none;
+        }
+
+    .position-relative {
+        position: relative;
+    }
+
+    .loading-suggestion {
+        padding: 10px 15px;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+
+@code {
+    private BookingRequest booking = new();
+    private bool isBookingSuccess;
+    private bool isSubmitting = false;
+    private string? msg;
+    private DotNetObjectReference<Booking>? objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initBookingMap", objRef);
+            await JS.InvokeVoidAsync("initAutocomplete");
+            // Automatically get current location as default pickup
+            await JS.InvokeVoidAsync("getCurrentLocationOnLoad");
+        }
+    }
+
+    private async Task OnPickupInputChanged(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+        booking.PickupAddress = searchTerm;
+
+        if (!string.IsNullOrWhiteSpace(searchTerm) && searchTerm.Length > 2)
+        {
+            await JS.InvokeVoidAsync("searchLocation", searchTerm, "pickup");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("hideSuggestions", "pickup");
+        }
+    }
+
+    private async Task OnDestinationInputChanged(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+        booking.DestinationAddress = searchTerm;
+
+        if (!string.IsNullOrWhiteSpace(searchTerm) && searchTerm.Length > 2)
+        {
+            await JS.InvokeVoidAsync("searchLocation", searchTerm, "destination");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("hideSuggestions", "destination");
+        }
+    }
+
+    private async Task GetCurrentLocation()
+    {
+        await JS.InvokeVoidAsync("getCurrentLocation");
+    }
+
+    [JSInvokable]
+    public void UpdatePickupLocation(double lat, double lng, string address)
+    {
+        booking.PickupLat = lat;
+        booking.PickupLng = lng;
+        booking.PickupAddress = address;
+        StateHasChanged();
+        CalculateRoute();
+    }
+
+    [JSInvokable]
+    public void UpdateDestination(double lat, double lng, string address)
+    {
+        booking.DestinationLat = lat;
+        booking.DestinationLng = lng;
+        booking.DestinationAddress = address;
+        StateHasChanged(); 
+        CalculateRoute();
+    }
+
+    private void CalculateRoute()
+    {
+        if (booking.PickupLat != 0 && booking.DestinationLat != 0)
+        {
+            booking.EstimatedDistance = BookingService.CalculateDistance(
+                booking.PickupLat, booking.PickupLng,
+                booking.DestinationLat, booking.DestinationLng);
+
+            booking.EstimatedDuration = (int)Math.Ceiling(booking.EstimatedDistance * 2.5); // 2.5 min per km
+
+            if (booking.ServiceType != 0)
+            {
+                booking.EstimatedCost =  BookingService.CalculateCost(booking.EstimatedDistance, booking.ServiceType, booking.IsRoundTrip);
+            }
+
+            StateHasChanged();
+        }
+    }
+
+    private void OnServiceTypeChanged()
+    {
+        CalculateRoute();
+    }
+
+
+    private void HandleValidSubmit()
+    {
+        if (booking.PickupLat == 0 || booking.DestinationLat == 0)
+        {
+            msg = "Please select both pickup and destination locations.";
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            var bookingId =  BookingService.CreateBooking(booking);
+            isBookingSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            msg = $"Error creating booking: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task ClearForm()
+    {
+        booking = new BookingRequest();
+        msg = "";
+        isBookingSuccess = false;
+        await JS.InvokeVoidAsync("clearBookingMap");
+        await JS.InvokeVoidAsync("clearInputs");
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        objRef?.Dispose();
+    }
+}

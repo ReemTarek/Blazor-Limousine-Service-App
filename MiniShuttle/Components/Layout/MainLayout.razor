@@ -1,0 +1,49 @@
+﻿@inherits LayoutComponentBase
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <div class="container">
+        <a class="navbar-brand text-primary fw-bold" href="index.html">
+            <i class="fas fa-plane me-2"></i>
+            MiniShuttle
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link active" href="">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="book-service-v2">Request Ride</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="driver">Become a Driver</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="page">
+
+
+
+    <main>
+        @Body
+    </main>
+</div>
+<footer class="bg-dark text-white py-4">
+    <div class="container text-center">
+        <div class="d-flex align-items-center justify-content-center mb-2">
+            <i class="fas fa-plane me-2"></i>
+            <span class="fw-bold">MiniShuttle</span>
+        </div>
+        <p class="mb-0">&copy; @DateTime.Now.Year.ToString() MiniShuttle. All rights reserved.</p>
+    </div>
+</footer>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

@@ -1,0 +1,446 @@
+﻿@page "/driver"
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Driver Registration</PageTitle>
+
+<main class="main-content">
+    <div class="container">
+        <div class="form-container">
+            <div class="form-header">
+                <h1><i class="fas fa-user-plus"></i> Driver Registration</h1>
+                <p>Join our team of professional drivers</p>
+            </div>
+
+            @if (showSuccessMessage)
+            {
+                <div class="alert alert-success alert-dismissible fade show mt-3">
+                    <strong>Success!</strong> Your driver registration has been submitted successfully.
+                    <button type="button" class="btn-close" @onclick="DismissSuccessMessage"></button>
+                </div>
+            }
+
+            <EditForm Model="driverModel" class="driver-form" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="HandleInvalidSubmit">
+                <DataAnnotationsValidator />
+
+                <div class="form-section">
+                    <h3><i class="fas fa-user"></i> Personal Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="firstName">First Name *</label>
+                            <InputText id="firstName" @bind-Value="driverModel.FirstName" class="@GetValidationClass(nameof(driverModel.FirstName))" />
+                            <ValidationMessage For="@(() => driverModel.FirstName)" />
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName">Last Name *</label>
+                            <InputText id="lastName" @bind-Value="driverModel.LastName" class="@GetValidationClass(nameof(driverModel.LastName))" />
+                            <ValidationMessage For="@(() => driverModel.LastName)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverEmail">Email Address *</label>
+                            <InputText id="driverEmail" type="email" @bind-Value="driverModel.Email" class="@GetValidationClass(nameof(driverModel.Email))" />
+                            <ValidationMessage For="@(() => driverModel.Email)" />
+                        </div>
+                        <div class="form-group">
+                            <label for="driverPhone">Phone Number *</label>
+                            <InputText id="driverPhone" type="tel" @bind-Value="driverModel.Phone" class="@GetValidationClass(nameof(driverModel.Phone))" />
+                            <ValidationMessage For="@(() => driverModel.Phone)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dateOfBirth">Date of Birth *</label>
+                            <InputDate id="dateOfBirth" @bind-Value="driverModel.DateOfBirth" max="@maxBirthDate" class="@GetValidationClass(nameof(driverModel.DateOfBirth))" />
+                            <ValidationMessage For="@(() => driverModel.DateOfBirth)" />
+                        </div>
+                        <div class="form-group">
+                            <label for="licenseNumber">Driver's License Number *</label>
+                            <InputText id="licenseNumber" @bind-Value="driverModel.LicenseNumber" class="@GetValidationClass(nameof(driverModel.LicenseNumber))" />
+                            <ValidationMessage For="@(() => driverModel.LicenseNumber)" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="address">Full Address *</label>
+                        <InputTextArea id="address" @bind-Value="driverModel.Address" rows="2" class="@GetValidationClass(nameof(driverModel.Address))" />
+                        <ValidationMessage For="@(() => driverModel.Address)" />
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3><i class="fas fa-car"></i> Vehicle Information</h3>
+                    <div class="vehicle-ownership">
+                        <InputRadioGroup TValue="string" @bind-Value="driverModel.VehicleOwnership" @bind-Value:after="OnVehicleOwnershipChanged" Name="vehicleOwnership">
+                            <label class="radio-label">
+                                <InputRadio Value="@("own")" class="d-none" />
+                                <span class="radio-custom"></span>
+                                <div class="radio-content">
+                                    <strong>I have my own vehicle</strong>
+                                    <p>I will use my personal vehicle for transportation services</p>
+                                </div>
+                            </label>
+                            <label class="radio-label">
+                                <InputRadio Value="@("rent")" class="d-none" />
+                                <span class="radio-custom"></span>
+                                <div class="radio-content">
+                                    <strong>I need to rent a vehicle</strong>
+                                    <p>I will rent a vehicle through the platform for transportation services</p>
+                                </div>
+                            </label>
+                        </InputRadioGroup>
+                    </div>
+                    <ValidationMessage For="@(() => driverModel.VehicleOwnership)" />
+
+                    @if (showVehicleDetails)
+                    {
+                        <div id="vehicleDetails" class="vehicle-details">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="vehicleMake">Vehicle Make *</label>
+                                    <InputText id="vehicleMake" @bind-Value="driverModel.VehicleMake" placeholder="e.g., Toyota" class="@GetValidationClass(nameof(driverModel.VehicleMake))" />
+                                    <ValidationMessage For="@(() => driverModel.VehicleMake)" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="vehicleModel">Vehicle Model *</label>
+                                    <InputText id="vehicleModel" @bind-Value="driverModel.VehicleModel" placeholder="e.g., Camry" class="@GetValidationClass(nameof(driverModel.VehicleModel))" />
+                                    <ValidationMessage For="@(() => driverModel.VehicleModel)" />
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="vehicleYear">Year *</label>
+                                    <InputNumber id="vehicleYear" @bind-Value="driverModel.VehicleYear" class="@GetValidationClass(nameof(driverModel.VehicleYear))" />
+                                    <ValidationMessage For="@(() => driverModel.VehicleYear)" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="vehicleColor">Color *</label>
+                                    <InputText id="vehicleColor" @bind-Value="driverModel.VehicleColor" class="@GetValidationClass(nameof(driverModel.VehicleColor))" />
+                                    <ValidationMessage For="@(() => driverModel.VehicleColor)" />
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="licensePlate">License Plate *</label>
+                                    <InputText id="licensePlate" @bind-Value="driverModel.LicensePlate" class="@GetValidationClass(nameof(driverModel.LicensePlate))" />
+                                    <ValidationMessage For="@(() => driverModel.LicensePlate)" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="seatingCapacity">Seating Capacity *</label>
+                                    <InputSelect id="seatingCapacity" @bind-Value="driverModel.SeatingCapacity" class="@GetValidationClass(nameof(driverModel.SeatingCapacity))">
+                                        <option value="">Select capacity</option>
+                                        <option value="4">4 passengers</option>
+                                        <option value="5">5 passengers</option>
+                                        <option value="6">6 passengers</option>
+                                        <option value="7">7 passengers</option>
+                                        <option value="8">8+ passengers</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => driverModel.SeatingCapacity)" />
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (showRentalPreferences)
+                    {
+                        <div id="rentalPreferences" class="rental-preferences">
+                            <div class="form-group">
+                                <label for="preferredVehicleType">Preferred Vehicle Type</label>
+                                <InputSelect id="preferredVehicleType" @bind-Value="driverModel.PreferredVehicleType">
+                                    <option value="">Select vehicle type</option>
+                                    <option value="economy">Economy Car</option>
+                                    <option value="standard">Standard Car</option>
+                                    <option value="premium">Premium Car</option>
+                                    <option value="suv">SUV</option>
+                                    <option value="minivan">Minivan</option>
+                                </InputSelect>
+                            </div>
+                            <div class="form-group">
+                                <label for="rentalDuration">Expected Rental Duration</label>
+                                <InputSelect id="rentalDuration" @bind-Value="driverModel.RentalDuration">
+                                    <option value="">Select duration</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="long-term">Long-term (6+ months)</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="form-section">
+                    <h3><i class="fas fa-briefcase"></i> Experience & Availability</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="drivingExperience">Driving Experience (years) *</label>
+                            <InputSelect id="drivingExperience" @bind-Value="driverModel.DrivingExperience" class="@GetValidationClass(nameof(driverModel.DrivingExperience))">
+                                <option value="">Select experience</option>
+                                <option value="1-2">1-2 years</option>
+                                <option value="3-5">3-5 years</option>
+                                <option value="6-10">6-10 years</option>
+                                <option value="10+">10+ years</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => driverModel.DrivingExperience)" />
+                        </div>
+                        <div class="form-group">
+                            <label for="commercialExperience">Commercial Driving Experience</label>
+                            <InputSelect id="commercialExperience" @bind-Value="driverModel.CommercialExperience">
+                                <option value="none">No commercial experience</option>
+                                <option value="rideshare">Rideshare (Uber/Lyft)</option>
+                                <option value="taxi">Taxi</option>
+                                <option value="delivery">Delivery services</option>
+                                <option value="other">Other commercial driving</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Availability *</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-label">
+                                <InputCheckbox @bind-Value="driverModel.WeekdayMorning" />
+                                <span class="checkmark"></span>
+                                Weekday Mornings
+                            </label>
+                            <label class="checkbox-label">
+                                <InputCheckbox @bind-Value="driverModel.WeekdayAfternoon" />
+                                <span class="checkmark"></span>
+                                Weekday Afternoons
+                            </label>
+                            <label class="checkbox-label">
+                                <InputCheckbox @bind-Value="driverModel.WeekdayEvening" />
+                                <span class="checkmark"></span>
+                                Weekday Evenings
+                            </label>
+                            <label class="checkbox-label">
+                                <InputCheckbox @bind-Value="driverModel.Weekend" />
+                                <span class="checkmark"></span>
+                                Weekends
+                            </label>
+                            <label class="checkbox-label">
+                                <InputCheckbox @bind-Value="driverModel.Overnight" />
+                                <span class="checkmark"></span>
+                                Overnight (11PM-6AM)
+                            </label>
+                            <label class="checkbox-label">
+                                <InputCheckbox @bind-Value="driverModel.FlexibleSchedule" />
+                                <span class="checkmark"></span>
+                                Flexible Schedule
+                            </label>
+                        </div>
+                        @if (!HasAvailabilitySelected())
+                        {
+                            <div class="text-danger">At least one availability option must be selected.</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3><i class="fas fa-shield-alt"></i> Background & Documentation</h3>
+                    <div class="form-group">
+                        <label for="backgroundCheck">Background Check Consent *</label>
+                        <label class="checkbox-label">
+                            <InputCheckbox id="backgroundCheck" @bind-Value="driverModel.BackgroundCheck" />
+                            <span class="checkmark"></span>
+                            I consent to a background check as part of the driver verification process
+                        </label>
+                        <ValidationMessage For="@(() => driverModel.BackgroundCheck)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="insurance">Insurance Information *</label>
+                        <label class="checkbox-label">
+                            <InputCheckbox id="insurance" @bind-Value="driverModel.Insurance" />
+                            <span class="checkmark"></span>
+                            I have valid auto insurance coverage
+                        </label>
+                        <ValidationMessage For="@(() => driverModel.Insurance)" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="terms">Terms and Conditions *</label>
+                        <label class="checkbox-label">
+                            <InputCheckbox id="terms" @bind-Value="driverModel.Terms" />
+                            <span class="checkmark"></span>
+                            I agree to the terms and conditions and driver agreement
+                        </label>
+                        <ValidationMessage For="@(() => driverModel.Terms)" />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-large">
+                        <i class="fas fa-user-check"></i>
+                        Submit Application
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="ResetForm">
+                        <i class="fas fa-undo"></i>
+                        Reset Form
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</main>
+
+@code {
+    private DriverRegistrationModel driverModel = new();
+    private bool showVehicleDetails = false;
+    private bool showRentalPreferences = false;
+    private bool showSuccessMessage = false;
+    private string maxBirthDate = DateTime.Today.AddYears(-18).ToString("yyyy-MM-dd");
+
+    protected override void OnInitialized()
+    {
+        // Initialize with default values
+        driverModel.CommercialExperience = "none";
+    }
+
+    private void OnVehicleOwnershipChanged()
+    {
+        var value = driverModel.VehicleOwnership;
+
+        showVehicleDetails = value == "own";
+        showRentalPreferences = value == "rent";
+
+        // Clear fields when switching ownership type
+        if (value == "own")
+        {
+            ClearRentalFields();
+        }
+        else if (value == "rent")
+        {
+            ClearVehicleFields();
+        }
+
+        StateHasChanged();
+    }
+
+    private void ClearVehicleFields()
+    {
+        driverModel.VehicleMake = string.Empty;
+        driverModel.VehicleModel = string.Empty;
+        driverModel.VehicleYear = null;
+        driverModel.VehicleColor = string.Empty;
+        driverModel.LicensePlate = string.Empty;
+        driverModel.SeatingCapacity = string.Empty;
+    }
+
+    private void ClearRentalFields()
+    {
+        driverModel.PreferredVehicleType = string.Empty;
+        driverModel.RentalDuration = string.Empty;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (!HasAvailabilitySelected())
+        {
+            return;
+        }
+
+        showSuccessMessage = true;
+        StateHasChanged();
+
+ 
+        ResetForm();
+    }
+
+    private void HandleInvalidSubmit()
+    {
+        // Form validation will automatically show validation messages
+    }
+
+    private void ResetForm()
+    {
+        driverModel = new DriverRegistrationModel();
+        driverModel.CommercialExperience = "none";
+        showVehicleDetails = false;
+        showRentalPreferences = false;
+       // showSuccessMessage = false;
+        StateHasChanged();
+    }
+
+    private void DismissSuccessMessage()
+    {
+        showSuccessMessage = false;
+    }
+
+    private bool HasAvailabilitySelected()
+    {
+        return driverModel.WeekdayMorning || driverModel.WeekdayAfternoon ||
+               driverModel.WeekdayEvening || driverModel.Weekend ||
+               driverModel.Overnight || driverModel.FlexibleSchedule;
+    }
+
+    private string GetValidationClass(string fieldName)
+    {
+        // This would integrate with Blazor's validation system
+        // For now, returning empty string
+        return string.Empty;
+    }
+
+    public class DriverRegistrationModel
+    {
+        [Required(ErrorMessage = "First name is required")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required")]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Phone number is required")]
+        public string Phone { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Date of birth is required")]
+        public DateTime? DateOfBirth { get; set; }
+
+        [Required(ErrorMessage = "License number is required")]
+        public string LicenseNumber { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Address is required")]
+        public string Address { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Vehicle ownership selection is required")]
+        public string VehicleOwnership { get; set; } = string.Empty;
+
+        // Vehicle Details (conditionally required)
+        public string VehicleMake { get; set; } = string.Empty;
+        public string VehicleModel { get; set; } = string.Empty;
+        public int? VehicleYear { get; set; }
+        public string VehicleColor { get; set; } = string.Empty;
+        public string LicensePlate { get; set; } = string.Empty;
+        public string SeatingCapacity { get; set; } = string.Empty;
+
+        // Rental Preferences
+        public string PreferredVehicleType { get; set; } = string.Empty;
+        public string RentalDuration { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Driving experience is required")]
+        public string DrivingExperience { get; set; } = string.Empty;
+
+        public string CommercialExperience { get; set; } = string.Empty;
+
+        // Availability checkboxes
+        public bool WeekdayMorning { get; set; }
+        public bool WeekdayAfternoon { get; set; }
+        public bool WeekdayEvening { get; set; }
+        public bool Weekend { get; set; }
+        public bool Overnight { get; set; }
+        public bool FlexibleSchedule { get; set; }
+
+        [Required(ErrorMessage = "Background check consent is required")]
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must consent to background check")]
+        public bool BackgroundCheck { get; set; }
+
+        [Required(ErrorMessage = "Insurance confirmation is required")]
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must have valid insurance")]
+        public bool Insurance { get; set; }
+
+        [Required(ErrorMessage = "You must agree to terms and conditions")]
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must agree to terms and conditions")]
+        public bool Terms { get; set; }
+    }
+}

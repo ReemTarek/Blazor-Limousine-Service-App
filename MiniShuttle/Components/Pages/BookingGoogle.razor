@@ -1,0 +1,704 @@
+﻿@page "/book-service-google"
+@using MiniShuttle.Models
+@using MiniShuttle.Service
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@inject BookingService BookingService
+@implements IAsyncDisposable
+
+<PageTitle>Mini Shuttle Booking Service</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Booking Form -->
+        <div class="col-lg-4">
+            <!-- Booking Confirmation -->
+            @if (isBookingSuccess)
+            {
+                <div class="card mt-3 border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">🎉 Booking Confirmed!</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-success">
+                            <h6><strong>Booking Details:</strong></h6>
+                            <hr />
+                            <p><strong>Booking ID:</strong> @booking.Id</p>
+                            <p><strong>Service:</strong> @booking.ServiceType</p>
+                            <p><strong>Date:</strong> @booking.BookingDateTime.ToString("MMM dd, yyyy HH:mm")</p>
+                            <p><strong>From:</strong> @booking.PickupAddress</p>
+                            <p><strong>To:</strong> @booking.DestinationAddress</p>
+                            @if (booking.IsRoundTrip)
+                            {
+                                <p><strong>Return Date:</strong> @booking.ReturnRoundDateTime.ToString("MMM dd, yyyy HH:mm")</p>
+                            }
+                            <p><strong>Distance:</strong> @booking.EstimatedDistance.ToString("F2") km</p>
+                            <p><strong>Duration:</strong> ~@booking.EstimatedDuration min</p>
+                            <hr />
+                            <p class="h5 text-success mb-0"><strong>Total Cost: $@booking.EstimatedCost.ToString("F2")</strong></p>
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary" @onclick="StartNewBooking">
+                                📝 Book Another Ride
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card shadow">
+                    <div class="card-header bg-dark text-white">
+                        <h4 class="mb-0">🚐 Book Your Ride</h4>
+                        <small>Fill in your trip details below</small>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="booking" OnValidSubmit="HandleValidSubmit">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="alert alert-danger" />
+
+                            <!-- Trip Details -->
+                            <h6 class="text-muted mb-3">🎯 Trip Details</h6>
+
+                            <div class="mb-3">
+                                <label class="form-label">Service Type *</label>
+                                <InputSelect @bind-Value="booking.ServiceType" class="form-select" @bind-Value:after="OnServiceTypeChanged">
+                                    <option value="">-- Select Service --</option>
+                                    <option value="@ServiceType.Standard">🚐 Standard</option>
+                                    <option value="@ServiceType.Premium">🚙 Premium</option>
+                                    <option value="@ServiceType.Luxury">🚗 Luxury</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => booking.ServiceType)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Pickup Location *</label>
+                                <div class="input-group position-relative">
+                                    <input type="text"
+                                           id="pickupSearchInput"
+                                           class="form-control"
+                                           placeholder="Search for pickup location..."
+                                           value="@booking.PickupAddress"
+                                           @oninput="OnPickupInputChanged"
+                                           @onfocus=@(() => OnInputFocus("pickup"))
+                                           @onblur=@(() => OnInputBlur("pickup")) />
+                                    <button type="button" class="btn btn-outline-primary" @onclick="GetCurrentLocation" title="Use current location">
+                                        📍
+                                    </button>
+                                    <div id="pickupSuggestions" class="autocomplete-suggestions"></div>
+                                </div>
+                                <small class="text-muted">Type to search or click 📍 to use current location</small>
+                                <ValidationMessage For="@(() => booking.PickupAddress)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Destination *</label>
+                                <div class="position-relative">
+                                    <input type="text"
+                                           id="destinationSearchInput"
+                                           class="form-control"
+                                           placeholder="Search for destination..."
+                                           value="@booking.DestinationAddress"
+                                           @oninput="OnDestinationInputChanged"
+                                           @onfocus=@(() => OnInputFocus("destination"))
+                                           @onblur=@(() => OnInputBlur("destination")) />
+                                    <div id="destinationSuggestions" class="autocomplete-suggestions"></div>
+                                </div>
+                                <small class="text-muted">Type to search or click on map to select destination</small>
+                                <ValidationMessage For="@(() => booking.DestinationAddress)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Pickup Date & Time *</label>
+                                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="booking.BookingDateTime" class="form-control" min="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                                <ValidationMessage For="@(() => booking.BookingDateTime)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="booking.IsRoundTrip" class="form-check-input" @bind-Value:after="OnRoundTripChanged" id="roundTripCheck" />
+                                    <label class="form-check-label" for="roundTripCheck">
+                                        🔄 Round Trip
+                                    </label>
+                                </div>
+                                <ValidationMessage For="@(() => booking.IsRoundTrip)" class="text-danger" />
+                            </div>
+
+                            @if (booking.IsRoundTrip)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Return Date & Time *</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="booking.ReturnRoundDateTime" class="form-control" min="@booking.BookingDateTime.ToString("yyyy-MM-ddTHH:mm")" />
+                                    <ValidationMessage For="@(() => booking.ReturnRoundDateTime)" class="text-danger" />
+                                </div>
+                            }
+
+                            <!-- Enhanced Route Information Display -->
+                            @if (booking.EstimatedDistance > 0)
+                            {
+                                <div class="alert @(hasActualRoute ? "alert-success" : "alert-warning") mb-3">
+                                    @if (hasActualRoute)
+                                    {
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="badge bg-success me-2">✅ Actual Route</span>
+                                            <small class="text-muted">Based on real road data</small>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="badge bg-warning text-dark me-2">⚠️ Estimated Route</span>
+                                            <small class="text-muted">Direct distance calculation</small>
+                                        </div>
+                                    }
+
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="border-end">
+                                                <strong>📏 Distance</strong><br />
+                                                <span class="h6 text-primary">@booking.EstimatedDistance.ToString("F2") km</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="border-end">
+                                                <strong>⏱️ Duration</strong><br />
+                                                <span class="h6 text-info">~@booking.EstimatedDuration min</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <strong>💰 Cost</strong><br />
+                                            <span class="h6 text-success">$@booking.EstimatedCost.ToString("F2")</span>
+                                        </div>
+                                    </div>
+
+                                    @if (booking.IsRoundTrip)
+                                    {
+                                        <hr />
+                                        <small class="text-muted d-block text-center">
+                                            <strong>Round Trip:</strong> Return journey included (×2 distance and cost)
+                                        </small>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Loading state for route calculation -->
+                            @if (isCalculatingRoute && booking.EstimatedDistance == 0)
+                            {
+                                <div class="alert alert-info mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="spinner-border spinner-border-sm me-3" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <div>
+                                            <strong>Calculating route...</strong><br />
+                                            <small>Please wait while we find the best route for your journey.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Error Messages -->
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger mb-3">
+                                    <strong>⚠️ Error:</strong> @errorMessage
+                                </div>
+                            }
+
+                            <!-- Submit Button -->
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-success btn-lg" disabled="@IsSubmitDisabled()">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                        <span>Processing...</span>
+                                    }
+                                    else if (booking.EstimatedDistance == 0)
+                                    {
+                                        <span>📍 Select Pickup & Destination</span>
+                                    }
+                                    else if (isCalculatingRoute)
+                                    {
+                                        <span>⏳ Calculating Route...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>✅ Confirm Booking - $@booking.EstimatedCost.ToString("F2")</span>
+                                    }
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="ClearForm" disabled="@isSubmitting">
+                                    🗑️ Clear Form
+                                </button>
+                            </div>
+                        </EditForm>
+
+                        <!-- Info Message -->
+                        @if (!string.IsNullOrEmpty(infoMessage))
+                        {
+                            <div class="alert alert-info mt-3">
+                                @infoMessage
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Map Column -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">🗺️ Select Your Locations</h5>
+                        <small>Search for locations or click on the map</small>
+                    </div>
+                    @if (isCalculatingRoute)
+                    {
+                        <div class="spinner-border spinner-border-sm text-light" role="status">
+                            <span class="visually-hidden">Calculating route...</span>
+                        </div>
+                    }
+                </div>
+                <div class="card-body p-0">
+                    <div id="bookingMap" style="height: 600px; width: 100%;"></div>
+                </div>
+                @if (booking.EstimatedDistance > 0)
+                {
+                    <div class="card-footer bg-light">
+                        <div class="row text-center small">
+                            <div class="col">
+                                <strong>🚩 Pickup:</strong><br />
+                                <small class="text-muted">@TruncateAddress(booking.PickupAddress, 30)</small>
+                            </div>
+                            <div class="col">
+                                <strong>🎯 Destination:</strong><br />
+                                <small class="text-muted">@TruncateAddress(booking.DestinationAddress, 30)</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Maps Script -->
+<script>
+    // This will be loaded from your Google Maps API
+    // Make sure to include: https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places&callback=initMap
+</script>
+
+<style>
+    .autocomplete-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        max-height: 250px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .autocomplete-suggestion {
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
+        transition: background-color 0.2s ease;
+    }
+
+        .autocomplete-suggestion:hover {
+            background-color: #f8f9fa;
+        }
+
+        .autocomplete-suggestion.selected {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .autocomplete-suggestion:last-child {
+            border-bottom: none;
+        }
+
+    .position-relative {
+        position: relative;
+    }
+
+    .loading-suggestion {
+        padding: 12px 16px;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+        background-color: #f8f9fa;
+    }
+
+    /* Enhanced route info styling */
+    .alert .row .col-4 {
+        margin-bottom: 0.5rem;
+    }
+
+    .border-end {
+        border-right: 1px solid rgba(0,0,0,0.1) !important;
+    }
+
+    @@media (max-width: 768px) {
+        .border-end
+
+    {
+        border-right: none !important;
+        border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .alert .row .col-4:last-child {
+        border-bottom: none !important;
+    }
+
+    }
+
+    /* Card styling improvements */
+    .card {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .card-header {
+        border-bottom: 2px solid rgba(255,255,255,0.2);
+    }
+
+    /* Button styling */
+    .btn-lg {
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    /* Form styling */
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+</style>
+
+@code {
+    private BookingRequest booking = new();
+    private bool isBookingSuccess;
+    private bool isSubmitting = false;
+    private bool isCalculatingRoute = false;
+    private bool hasActualRoute = false;
+    private string? errorMessage;
+    private string? infoMessage;
+    private DotNetObjectReference<BookingGoogle>? objRef;
+
+    // Configuration - Add your Google Maps API key here
+    private const string GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"; // Replace with your actual API key
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            objRef = DotNetObjectReference.Create(this);
+
+            try
+            {
+                // Set the Google Maps API key
+                await JS.InvokeVoidAsync("setGoogleMapsApiKey", GOOGLE_MAPS_API_KEY);
+
+                // Initialize the map and autocomplete
+                await JS.InvokeVoidAsync("initBookingMap", objRef);
+                await JS.InvokeVoidAsync("initAutocomplete");
+
+                // Automatically get current location as default pickup
+                await JS.InvokeVoidAsync("getCurrentLocationOnLoad");
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "Failed to initialize map. Please refresh the page.";
+                StateHasChanged();
+                Console.WriteLine($"Map initialization error: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OnPickupInputChanged(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+        booking.PickupAddress = searchTerm;
+        errorMessage = null;
+
+        if (!string.IsNullOrWhiteSpace(searchTerm) && searchTerm.Length > 2)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("searchLocation", searchTerm, "pickup");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Pickup search error: {ex.Message}");
+            }
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("hideSuggestions", "pickup");
+        }
+    }
+
+    private async Task OnDestinationInputChanged(ChangeEventArgs e)
+    {
+        var searchTerm = e.Value?.ToString() ?? "";
+        booking.DestinationAddress = searchTerm;
+        errorMessage = null;
+
+        if (!string.IsNullOrWhiteSpace(searchTerm) && searchTerm.Length > 2)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("searchLocation", searchTerm, "destination");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Destination search error: {ex.Message}");
+            }
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("hideSuggestions", "destination");
+        }
+    }
+
+    private async Task OnInputFocus(string type)
+    {
+        // Hide suggestions when input loses focus
+        await Task.Delay(100); // Small delay to allow click events on suggestions
+    }
+
+    private async Task OnInputBlur(string type)
+    {
+        // Hide suggestions when input loses focus
+        await Task.Delay(150); // Small delay to allow click events on suggestions
+        await JS.InvokeVoidAsync("hideSuggestions", type);
+    }
+
+    private async Task GetCurrentLocation()
+    {
+        try
+        {
+            infoMessage = "Getting your current location...";
+            StateHasChanged();
+
+            await JS.InvokeVoidAsync("getCurrentLocation");
+
+            infoMessage = null;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Could not get your location. Please search manually.";
+            infoMessage = null;
+            StateHasChanged();
+            Console.WriteLine($"Geolocation error: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public async Task UpdatePickupLocation(double lat, double lng, string address)
+    {
+        booking.PickupLat = lat;
+        booking.PickupLng = lng;
+        booking.PickupAddress = address;
+        errorMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task UpdateDestination(double lat, double lng, string address)
+    {
+        booking.DestinationLat = lat;
+        booking.DestinationLng = lng;
+        booking.DestinationAddress = address;
+        errorMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnRouteCalculationStart()
+    {
+        isCalculatingRoute = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnRouteCalculationComplete()
+    {
+        isCalculatingRoute = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task UpdateRouteInformation(RouteInformation routeInfo)
+    {
+        booking.EstimatedDistance = routeInfo.Distance;
+        booking.EstimatedDuration = routeInfo.Duration;
+        hasActualRoute = routeInfo.IsActualRoute;
+
+        // Calculate cost based on actual route distance
+        if (booking.ServiceType != 0)
+        {
+            booking.EstimatedCost = BookingService.CalculateCost(booking.EstimatedDistance, booking.ServiceType, booking.IsRoundTrip);
+        }
+
+        isCalculatingRoute = false;
+        errorMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnServiceTypeChanged()
+    {
+        // Recalculate cost if we already have distance
+        if (booking.EstimatedDistance > 0 && booking.ServiceType != 0)
+        {
+            booking.EstimatedCost = BookingService.CalculateCost(booking.EstimatedDistance, booking.ServiceType, booking.IsRoundTrip);
+            StateHasChanged();
+        }
+    }
+
+    private void OnRoundTripChanged()
+    {
+        // Recalculate cost when round trip option changes
+        if (booking.EstimatedDistance > 0 && booking.ServiceType != 0)
+        {
+            booking.EstimatedCost = BookingService.CalculateCost(booking.EstimatedDistance, booking.ServiceType, booking.IsRoundTrip);
+            StateHasChanged();
+        }
+
+        // Ensure return date is after pickup date
+        if (booking.IsRoundTrip && booking.ReturnRoundDateTime <= booking.BookingDateTime)
+        {
+            booking.ReturnRoundDateTime = booking.BookingDateTime.AddHours(2);
+        }
+    }
+
+    private bool IsSubmitDisabled()
+    {
+        return isSubmitting ||
+               isCalculatingRoute ||
+               booking.EstimatedDistance == 0 ||
+               booking.PickupLat == 0 ||
+               booking.DestinationLat == 0 ||
+               booking.ServiceType == 0 ||
+               string.IsNullOrEmpty(booking.PickupAddress) ||
+               string.IsNullOrEmpty(booking.DestinationAddress);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (booking.PickupLat == 0 || booking.DestinationLat == 0)
+        {
+            errorMessage = "Please select both pickup and destination locations.";
+            return;
+        }
+
+        if (booking.EstimatedDistance == 0)
+        {
+            errorMessage = "Please wait for route calculation to complete.";
+            return;
+        }
+
+        if (booking.IsRoundTrip && booking.ReturnRoundDateTime <= booking.BookingDateTime)
+        {
+            errorMessage = "Return date must be after pickup date.";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var bookingId = BookingService.CreateBooking(booking);
+            booking.Id = bookingId;
+            isBookingSuccess = true;
+            infoMessage = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating booking: {ex.Message}";
+            Console.WriteLine($"Booking error: {ex}");
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearForm()
+    {
+        booking = new BookingRequest
+        {
+            BookingDateTime = DateTime.Now.AddHours(1) // Default to 1 hour from now
+        };
+
+        errorMessage = null;
+        infoMessage = null;
+        isBookingSuccess = false;
+        isCalculatingRoute = false;
+        hasActualRoute = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("clearBookingMap");
+            await JS.InvokeVoidAsync("clearInputs");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Clear form error: {ex.Message}");
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task StartNewBooking()
+    {
+        await ClearForm();
+    }
+
+    private string TruncateAddress(string address, int maxLength)
+    {
+        if (string.IsNullOrEmpty(address) || address.Length <= maxLength)
+            return address ?? "";
+
+        return address.Substring(0, maxLength - 3) + "...";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            objRef?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Dispose error: {ex.Message}");
+        }
+    }
+
+    // Helper class for route information from JavaScript
+    public class RouteInformation
+    {
+        public double Distance { get; set; }
+        public int Duration { get; set; }
+        public bool IsActualRoute { get; set; }
+        public double PickupLat { get; set; }
+        public double PickupLng { get; set; }
+        public double DestinationLat { get; set; }
+        public double DestinationLng { get; set; }
+    }
+}
